@@ -1071,19 +1071,23 @@ int WINAPI sighandler( int signum )
 
 int main( int argc, char *argv[] )
 {
-    unsigned char *h80211;
+	const char usage[] = "\nusage: airodump-ng -c <channel(s)> -o <output> [--ivs]\n";
+	char *output_filename = NULL;
+	char *channel_list = NULL;
+	unsigned char *h80211;
     unsigned long tick_prev;
     int caplen, chan_index;
+	unsigned short int i;
     int ws_row, ws_col;
     time_t tt;
 	char power;
 
 	// Modified to only use Airpcap adapters
 
-    if( argc >= 5 && argc < 7 )
+    if( argc > 0 && argc <= 6 )
     {
 		arg.card_model = 'A';
-		arg.oprefix = "";
+		arg.oprefix = NULL;
 
 		// Grab the first connected Airpcap adapter
 		
@@ -1096,43 +1100,77 @@ int main( int argc, char *argv[] )
 		{
 			// No Airpcap adapters exist
 
-			fprintf( stderr, "\nError: No airpcap devices found on this machine\n" );
+			fprintf( stderr, usage );
 			return ( 1 );
 		}
 
 		// Airpcap adapter found!
-
-		if( argv[1] && argv[2] )
+		
+		for( i = 0; i < argc; i++ ) 
 		{
-			if( strcmp( argv[1], "-c" ) == 0 )
+			// Get channel(s) to listen on
+
+			if( strcmp( argv[i], "-c" ) == 0 )
 			{
-				if( parse_channels( argv[2] ) != 0 )
+				if( (i + 1) <= argc )
 				{
-					fprintf( stderr, "\nError: Invalid wireless channel list\n" );
-					return ( 1 );
+					if( parse_channels( argv[i + 1] ) != 0 )
+					{
+						fprintf( stderr, usage );
+						return ( 1 );
+					}
+
+					channel_list = argv[i + 1];
+					continue;
 				}
 			}
-		}
 
-		// Get output filename
+			// Get output filename
 
-		if( argv[3] && argv[4] )
-		{
-			if( strcmp( argv[3], "-w" ) == 0 )
+			else if( strcmp( argv[i], "-w" ) == 0 )
 			{
-				arg.oprefix = argv[4];
+				if( (i + 1) <= argc )
+				{
+					arg.oprefix = argv[i + 1];
+					output_filename = arg.oprefix;
+					continue;
+				}
+
+				fprintf( stderr, usage );
+				return ( 1 );
+			}
+
+			// Add the --ivs for cracking WEP
+
+			else if( strcmp( argv[i], "--ivs" ) == 0 )
+			{	
+				arg.ivs_only = ( strcmp(argv[i], "--ivs") == 0 ) ? 1 : 0;
+				continue;
 			}
 		}
-
-		// Add the --ivs for cracking WEP
-
-        if( argc == 6 ) arg.ivs_only = ( strcmp(argv[5], "--ivs") == 0 ) ? 1 : 0;
     }
 
 	else
 	{
-		printf( "\nusage: airodump-ng -c <channel(s)> -o <output> \n" );
+		fprintf( stderr, usage );
 		return ( 1 );
+	}
+
+	if( channel_list == NULL )
+	{
+		channel_list = "0";
+
+		if( parse_channels( channel_list ) != 0 )
+		{
+			fprintf( stderr, usage );
+			return ( 1 );
+		}
+	}
+
+	if( output_filename == NULL ) 
+	{
+		output_filename = ".tmp";
+		arg.oprefix = output_filename;
 	}
 
     if( dump_initialize( arg.oprefix, arg.ivs_only ) ) return ( 1 );
