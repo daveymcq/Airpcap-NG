@@ -134,165 +134,168 @@ arg;
 
 int dump_initialize( char *output_prefix, int ivs_only )
 {
-    int n;
-    char o_filename[1024];
+	if(output_prefix)
+	{
+		int n;
+		char o_filename[1024];
 
-    ap_1st = ap_end = NULL;
-    st_1st = st_end = NULL;
+		ap_1st = ap_end = NULL;
+		st_1st = st_end = NULL;
 
-    /* create the output csv file */
+		/* create the output csv file */
 
-    if( strlen( output_prefix ) >= sizeof( o_filename ) - 5 )
-        output_prefix[sizeof( o_filename ) - 5] = '\0';
+		if( strlen( output_prefix ) >= sizeof( o_filename ) - 5 )
+			output_prefix[sizeof( o_filename ) - 5] = '\0';
 
-    if( strcmp( output_prefix, "-" ) != 0 )
-    {
-        memset( o_filename, 0, sizeof( o_filename ) );
-        snprintf( o_filename,  sizeof( o_filename ) - 1,
-                  "%s.txt", output_prefix );
+		if( strcmp( output_prefix, "-" ) != 0 )
+		{
+			memset( o_filename, 0, sizeof( o_filename ) );
+			snprintf( o_filename,  sizeof( o_filename ) - 1,
+					  "%s.txt", output_prefix );
 
-        if( ( f_csv_out = fopen( o_filename, "wb+" ) ) == NULL )
-        {
-            perror( "fopen failed" );
-            fprintf( stderr, "\n  Could not create \"%s\".\n", o_filename );
-            return( 1 );
-        }
-    }
+			if( ( f_csv_out = fopen( o_filename, "wb+" ) ) == NULL )
+			{
+				perror( "fopen failed" );
+				fprintf( stderr, "\n  Could not create \"%s\".\n", o_filename );
+				return( 1 );
+			}
+		}
 
-    /* open or create the output packet capture file */
+		/* open or create the output packet capture file */
 
-    if( ivs_only == 0 )
-    {
-        n = sizeof( struct pcap_file_header );
+		if( ivs_only == 0 )
+		{
+			n = sizeof( struct pcap_file_header );
 
-        if( strcmp( output_prefix, "-" ) != 0 )
-        {
-            memset( o_filename, 0, sizeof( o_filename ) );
-            snprintf( o_filename,  sizeof( o_filename ) - 1,
-                      "%s.cap", output_prefix );
-        }
-        else
-        {
-            f_cap_out = _fdopen( 1, "wb" );
-            goto write_cap_header;
-        }
+			if( strcmp( output_prefix, "-" ) != 0 )
+			{
+				memset( o_filename, 0, sizeof( o_filename ) );
+				snprintf( o_filename,  sizeof( o_filename ) - 1,
+						  "%s.cap", output_prefix );
+			}
+			else
+			{
+				f_cap_out = _fdopen( 1, "wb" );
+				goto write_cap_header;
+			}
 
-        if( ( f_cap_out = fopen( o_filename, "rb+" ) ) == NULL )
-        {
-        create_cap_file:
+			if( ( f_cap_out = fopen( o_filename, "rb+" ) ) == NULL )
+			{
+			create_cap_file:
 
-            if( ( f_cap_out = fopen( o_filename, "wb+" ) ) == NULL )
-            {
-                perror( "fopen failed" );
-                fprintf( stderr, "\n  Could not create \"%s\".\n", o_filename );
-                return( 1 );
-            }
+				if( ( f_cap_out = fopen( o_filename, "wb+" ) ) == NULL )
+				{
+					perror( "fopen failed" );
+					fprintf( stderr, "\n  Could not create \"%s\".\n", o_filename );
+					return( 1 );
+				}
 
-        write_cap_header:
+			write_cap_header:
 
-            pfh_out.magic           = TCPDUMP_MAGIC;
-            pfh_out.version_major   = PCAP_VERSION_MAJOR;
-            pfh_out.version_minor   = PCAP_VERSION_MINOR;
-            pfh_out.thiszone        = 0;
-            pfh_out.sigfigs         = 0;
-            pfh_out.snaplen         = 65535;
-            pfh_out.linktype        = LINKTYPE_IEEE802_11;
+				pfh_out.magic           = TCPDUMP_MAGIC;
+				pfh_out.version_major   = PCAP_VERSION_MAJOR;
+				pfh_out.version_minor   = PCAP_VERSION_MINOR;
+				pfh_out.thiszone        = 0;
+				pfh_out.sigfigs         = 0;
+				pfh_out.snaplen         = 65535;
+				pfh_out.linktype        = LINKTYPE_IEEE802_11;
 
-            if( fwrite( &pfh_out, 1, n, f_cap_out ) != (size_t) n )
-            {
-                perror( "fwrite(pcap file header) failed" );
-                return( 1 );
-            }
-        }
-        else
-        {
-            if( fread( &pfh_out, 1, n, f_cap_out ) != (size_t) n )
-                goto create_cap_file;
+				if( fwrite( &pfh_out, 1, n, f_cap_out ) != (size_t) n )
+				{
+					perror( "fwrite(pcap file header) failed" );
+					return( 1 );
+				}
+			}
+			else
+			{
+				if( fread( &pfh_out, 1, n, f_cap_out ) != (size_t) n )
+					goto create_cap_file;
 
-            if( pfh_out.magic != TCPDUMP_MAGIC &&
-                pfh_out.magic != TCPDUMP_CIGAM )
-            {
-                fprintf( stderr, "\n  \"%s\" isn't a pcap file (expected "
-                                 "TCPDUMP_MAGIC).\n", o_filename );
-                return( 1 );
-            }
+				if( pfh_out.magic != TCPDUMP_MAGIC &&
+					pfh_out.magic != TCPDUMP_CIGAM )
+				{
+					fprintf( stderr, "\n  \"%s\" isn't a pcap file (expected "
+									 "TCPDUMP_MAGIC).\n", o_filename );
+					return( 1 );
+				}
 
-            if( pfh_out.magic == TCPDUMP_CIGAM )
-                SWAP32( pfh_out.linktype );
+				if( pfh_out.magic == TCPDUMP_CIGAM )
+					SWAP32( pfh_out.linktype );
 
-            if( pfh_out.linktype != LINKTYPE_IEEE802_11 )
-            {
-                fprintf( stderr, "\n  Wrong linktype from pcap file header "
-                                 "(expected LINKTYPE_IEEE802_11) -\n"
-                                 "this doesn't look like a regular 802.11 "
-                                 "capture.\n" );
-                return( 1 );
-            }
+				if( pfh_out.linktype != LINKTYPE_IEEE802_11 )
+				{
+					fprintf( stderr, "\n  Wrong linktype from pcap file header "
+									 "(expected LINKTYPE_IEEE802_11) -\n"
+									 "this doesn't look like a regular 802.11 "
+									 "capture.\n" );
+					return( 1 );
+				}
 
-            if( fseek( f_cap_out, 0, SEEK_END ) != 0 )
-            {
-                perror( "fseek(SEEK_END) failed" );
-                return( 1 );
-            }
-        }
-    }
+				if( fseek( f_cap_out, 0, SEEK_END ) != 0 )
+				{
+					perror( "fseek(SEEK_END) failed" );
+					return( 1 );
+				}
+			}
+		}
 
-    if( ivs_only == 1 )
-    {
-        memset( prev_bssid, 0, 6 );
+		if( ivs_only == 1 )
+		{
+			memset( prev_bssid, 0, 6 );
 
-        if( strcmp( output_prefix, "-" ) != 0 )
-        {
-            memset( o_filename, 0, sizeof( o_filename ) );
-            snprintf( o_filename,  sizeof( o_filename ) - 1,
-                      "%s.ivs", output_prefix );
-        }
-        else
-        {
-            f_ivs_out = _fdopen( 1, "wb" );
-            goto write_ivs_header;
-        }
+			if( strcmp( output_prefix, "-" ) != 0 )
+			{
+				memset( o_filename, 0, sizeof( o_filename ) );
+				snprintf( o_filename,  sizeof( o_filename ) - 1,
+						  "%s.ivs", output_prefix );
+			}
+			else
+			{
+				f_ivs_out = _fdopen( 1, "wb" );
+				goto write_ivs_header;
+			}
 
-        if( ( f_ivs_out = fopen( o_filename, "rb+" ) ) == NULL )
-        {
-        create_ivs_file:
+			if( ( f_ivs_out = fopen( o_filename, "rb+" ) ) == NULL )
+			{
+			create_ivs_file:
 
-            if( ( f_ivs_out = fopen( o_filename, "wb+" ) ) == NULL )
-            {
-                perror( "fopen failed" );
-                fprintf( stderr, "\n  Could not create \"%s\".\n", o_filename );
-                return( 1 );
-            }
+				if( ( f_ivs_out = fopen( o_filename, "wb+" ) ) == NULL )
+				{
+					perror( "fopen failed" );
+					fprintf( stderr, "\n  Could not create \"%s\".\n", o_filename );
+					return( 1 );
+				}
 
-        write_ivs_header:
+			write_ivs_header:
 
-            if( fwrite( IVSONLY_MAGIC, 1, 4, f_ivs_out ) != sizeof( n ) )
-            {
-                perror( "fwrite(IVs file header) failed" );
-                return( 1 );
-            }
-        }
-        else
-        {
-            unsigned char ivs_hdr[4];
+				if( fwrite( IVSONLY_MAGIC, 1, 4, f_ivs_out ) != sizeof( n ) )
+				{
+					perror( "fwrite(IVs file header) failed" );
+					return( 1 );
+				}
+			}
+			else
+			{
+				unsigned char ivs_hdr[4];
 
-            if( fread( ivs_hdr, 1, 4, f_ivs_out ) != 4 )
-                goto create_ivs_file;
+				if( fread( ivs_hdr, 1, 4, f_ivs_out ) != 4 )
+					goto create_ivs_file;
 
-            if( memcmp( ivs_hdr, IVSONLY_MAGIC, 4 ) != 0 )
-            {
-                fprintf( stderr, "\n  \"%s\" isn't a IVs file (expected "
-                                 "IVSONLY_MAGIC).\n", o_filename );
-                return( 1 );
-            }
+				if( memcmp( ivs_hdr, IVSONLY_MAGIC, 4 ) != 0 )
+				{
+					fprintf( stderr, "\n  \"%s\" isn't a IVs file (expected "
+									 "IVSONLY_MAGIC).\n", o_filename );
+					return( 1 );
+				}
 
-            if( fseek( f_ivs_out, 0, SEEK_END ) != 0 )
-            {
-                perror( "fseek(SEEK_END) failed" );
-                return( 1 );
-            }
-        }
-    }
+				if( fseek( f_ivs_out, 0, SEEK_END ) != 0 )
+				{
+					perror( "fseek(SEEK_END) failed" );
+					return( 1 );
+				}
+			}
+		}
+	}
 
     return( 0 );
 }
@@ -1238,7 +1241,6 @@ int main( int argc, char *argv[] )
 
 	if( output_filename == NULL ) 
 	{
-		output_filename = ".tmp";
 		arg.oprefix = output_filename;
 	}
 
