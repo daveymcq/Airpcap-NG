@@ -120,6 +120,18 @@ FILE *f_ivs_out = NULL;
 
 const unsigned char llcnull [4]= {0, 0, 0, 0 };
 
+struct arguments
+{
+    int card_index;
+    int card_model;
+    int channels[29];
+	char bssid[18];
+    char *oprefix;
+    int ivs_only;
+}
+arg;
+
+
 int dump_initialize( char *output_prefix, int ivs_only )
 {
     int n;
@@ -697,6 +709,7 @@ write_packet:
 void dump_print( int ws_row, int ws_col )
 {
     int nlines;
+	char bssid[18];
     char strbuf[512];
 
     /* print some informations about each detected AP */
@@ -710,46 +723,63 @@ void dump_print( int ws_row, int ws_col )
 
     while( ap_cur != NULL )
     {
-        if( f_cap_in == NULL && ( ap_cur->nb_pkt < 2 ||
-              time( NULL ) - ap_cur->tlast > 120 ) )
-        {
-            ap_cur = ap_cur->prev;
-            continue;
-        }
+		if(strlen(arg.bssid) > 0)
+		{
+			sprintf( bssid, "%02X:%02X:%02X:%02X:%02X:%02X",
+					 ap_cur->bssid[0], ap_cur->bssid[1],
+					 ap_cur->bssid[2], ap_cur->bssid[3],
+					 ap_cur->bssid[4], ap_cur->bssid[5] );
+		}
 
-        if( ws_row != 0 && nlines > ws_row )
-            return;
+		else 
+		{
+			memset(bssid, 0, sizeof(bssid));
+			memset(arg.bssid, 0, sizeof(arg.bssid));
+		}
 
-        nlines++;
+		if(strcmp(arg.bssid, bssid) == 0)
+		{
+			if( f_cap_in == NULL && ( ap_cur->nb_pkt < 2 ||
+				  time( NULL ) - ap_cur->tlast > 120 ) )
+			{
+				ap_cur = ap_cur->prev;
+				continue;
+			}
 
-        fprintf( stderr, " %02X:%02X:%02X:%02X:%02X:%02X",
-                ap_cur->bssid[0], ap_cur->bssid[1],
-                ap_cur->bssid[2], ap_cur->bssid[3],
-                ap_cur->bssid[4], ap_cur->bssid[5] );
+			if( ws_row != 0 && nlines > ws_row )
+				return;
 
-        fprintf( stderr, "  %3d %8ld %8ld",
-                 ap_cur->power,
-                 ap_cur->nb_bcn,
-                 ap_cur->nb_data );
+			nlines++;
 
-        fprintf( stderr, " %3d %3d  ", ap_cur->chanl, ap_cur->speed );
+			fprintf( stderr, " %02X:%02X:%02X:%02X:%02X:%02X",
+					ap_cur->bssid[0], ap_cur->bssid[1],
+					ap_cur->bssid[2], ap_cur->bssid[3],
+					ap_cur->bssid[4], ap_cur->bssid[5] );
 
-        switch( ap_cur->crypt )
-        {
-            case  0: fprintf( stderr, "OPN " ); break;
-            case  1: fprintf( stderr, "WEP?" ); break;
-            case  2: fprintf( stderr, "WEP " ); break;
-            case  3: fprintf( stderr, "WPA " ); break;
-            default: fprintf( stderr, "    " ); break;
-        }
+			fprintf( stderr, "  %3d %8ld %8ld",
+					 ap_cur->power,
+					 ap_cur->nb_bcn,
+					 ap_cur->nb_data );
 
-        memset( strbuf, 0, sizeof( strbuf ) );
-        snprintf( strbuf,  sizeof( strbuf ) - 1,
-                  "%-32s", ap_cur->essid );
-        strbuf[ws_col - 58] = '\0';
-        fprintf( stderr, "  %s\n", strbuf );
+			fprintf( stderr, " %3d %3d  ", ap_cur->chanl, ap_cur->speed );
 
-        ap_cur = ap_cur->prev;
+			switch( ap_cur->crypt )
+			{
+				case  0: fprintf( stderr, "OPN " ); break;
+				case  1: fprintf( stderr, "WEP?" ); break;
+				case  2: fprintf( stderr, "WEP " ); break;
+				case  3: fprintf( stderr, "WPA " ); break;
+				default: fprintf( stderr, "    " ); break;
+			}
+
+			memset( strbuf, 0, sizeof( strbuf ) );
+			snprintf( strbuf,  sizeof( strbuf ) - 1,
+						  "%-32s", ap_cur->essid );
+			strbuf[ws_col - 58] = '\0';
+			fprintf( stderr, "  %s\n", strbuf );
+		}
+
+		ap_cur = ap_cur->prev;
     }
 
     /* print some informations about each detected station */
@@ -774,6 +804,20 @@ void dump_print( int ws_row, int ws_col )
 
     while( ap_cur != NULL )
     {
+		if(strlen(arg.bssid) > 0)
+		{
+			sprintf( bssid, "%02X:%02X:%02X:%02X:%02X:%02X",
+					 ap_cur->bssid[0], ap_cur->bssid[1],
+					 ap_cur->bssid[2], ap_cur->bssid[3],
+					 ap_cur->bssid[4], ap_cur->bssid[5] );
+		}
+
+		else 
+		{
+			memset(bssid, 0, sizeof(bssid));
+			memset(arg.bssid, 0, sizeof(arg.bssid));
+		}
+
         if( f_cap_in == NULL && ( ap_cur->nb_pkt < 2 ||
               time( NULL ) - ap_cur->tlast > 120 ) )
         {
@@ -800,34 +844,38 @@ void dump_print( int ws_row, int ws_col )
 
             nlines++;
 
-            fprintf( stderr, " %02X:%02X:%02X:%02X:%02X:%02X",
-                    ap_cur->bssid[0], ap_cur->bssid[1],
-                    ap_cur->bssid[2], ap_cur->bssid[3],
-                    ap_cur->bssid[4], ap_cur->bssid[5] );
+			if(strcmp(arg.bssid, bssid) == 0)
+			{
+				fprintf( stderr, " %02X:%02X:%02X:%02X:%02X:%02X",
+						ap_cur->bssid[0], ap_cur->bssid[1],
+						ap_cur->bssid[2], ap_cur->bssid[3],
+						ap_cur->bssid[4], ap_cur->bssid[5] );
 
-            fprintf( stderr, "  %02X:%02X:%02X:%02X:%02X:%02X",
-                    st_cur->stmac[0], st_cur->stmac[1],
-                    st_cur->stmac[2], st_cur->stmac[3],
-                    st_cur->stmac[4], st_cur->stmac[5] );
+				fprintf( stderr, "  %02X:%02X:%02X:%02X:%02X:%02X",
+						st_cur->stmac[0], st_cur->stmac[1],
+						st_cur->stmac[2], st_cur->stmac[3],
+						st_cur->stmac[4], st_cur->stmac[5] );
 
-            if( st_cur->power != -1 )
-                fprintf( stderr, "  %3d", st_cur->power );
-            else
-                fprintf( stderr, "     " );
+				if( st_cur->power != -1 )
+					fprintf( stderr, "  %3d", st_cur->power );
+				else
+					fprintf( stderr, "     " );
 
-            fprintf( stderr, " %8ld", st_cur->nb_pkt );
+				fprintf( stderr, " %8ld", st_cur->nb_pkt );
+			
 
-            memset( strbuf, 0, sizeof( strbuf ) );
-            snprintf( strbuf,  sizeof( strbuf ) - 1,
-                      "%-32s", ap_cur->essid );
-            strbuf[ws_col - 54] = '\0';
-            fprintf( stderr, "  %s\n", strbuf );
+				memset( strbuf, 0, sizeof( strbuf ) );
+				snprintf( strbuf,  sizeof( strbuf ) - 1,
+						  "%-32s", ap_cur->essid );
+				strbuf[ws_col - 54] = '\0';
+				fprintf( stderr, "  %s\n", strbuf );
+			}
 
             st_cur = st_cur->prev;
         }
 
         ap_cur = ap_cur->prev;
-    }
+	}
 }
 
 void dump_write_csv( void )
@@ -953,16 +1001,6 @@ void dump_write_csv( void )
     fflush( f_csv_out );
 }
 
-struct arguments
-{
-    int card_index;
-    int card_model;
-    int channels[29];
-    char *oprefix;
-    int ivs_only;
-}
-arg;
-
 int rawlen;
 unsigned char rawbuf[65536];
 unsigned char buffer[65536];
@@ -1071,7 +1109,7 @@ int WINAPI sighandler( int signum )
 
 int main( int argc, char *argv[] )
 {
-	const char usage[] = "\nusage: airodump-ng -c <channel(s)> -o <output> [--ivs]\n";
+	const char usage[] = "\nusage: airodump-ng -c <channel(s)> -w <output> [--ivs] --bssid <BSSID> <interface>\n";
 	char *output_filename = NULL;
 	char *channel_list = NULL;
 	unsigned char *h80211;
@@ -1084,22 +1122,39 @@ int main( int argc, char *argv[] )
 
 	// Modified to only use Airpcap adapters
 
-    if( argc > 0 && argc <= 6 )
+    if( argc > 1 && argc <= 9 )
     {
+		char *card_interface = NULL;
+
+		arg.card_index = 0xff;
 		arg.card_model = 'A';
 		arg.oprefix = NULL;
 
-		// Grab the first connected Airpcap adapter
-		
-		for(arg.card_index = 1; arg.card_index <= 10; arg.card_index++)
-		{
-			if( open_adapter( arg.card_index ) == 0 ) break;
-		} 
-		
-		if(arg.card_index > 10)
-		{
-			// No Airpcap adapters exist
+		// Grab the connected Airpcap 
 
+		if( strlen((char *)argv[argc - 1]) > 11 )
+		{
+			card_interface = ( (char *)argv[argc - 1] + 11 );
+		}
+
+		else
+		{
+			fprintf( stderr, usage );
+			return ( 1 );
+		}
+
+		if( strlen(card_interface) >= 2 )
+		{
+			arg.card_index = ( atoi(card_interface) >= 0 ) ? ( atoi(card_interface) + 1 ) : 0xff;
+		}
+
+		if( arg.card_index > 0 )
+		{
+			open_adapter( arg.card_index );
+		}
+
+		else
+		{
 			fprintf( stderr, usage );
 			return ( 1 );
 		}
@@ -1133,6 +1188,20 @@ int main( int argc, char *argv[] )
 				{
 					arg.oprefix = argv[i + 1];
 					output_filename = arg.oprefix;
+					continue;
+				}
+
+				fprintf( stderr, usage );
+				return ( 1 );
+			}
+
+			// Get BSSID
+
+			else if( strcmp( argv[i], "--bssid" ) == 0 )
+			{
+				if( (i + 1) <= argc )
+				{
+					strncpy(arg.bssid, argv[i + 1], sizeof(arg.bssid) - 1);
 					continue;
 				}
 
